@@ -1,6 +1,6 @@
+import type { PlanName } from "@saas-core/shared";
 import type { BulkInviteResult } from "../../types";
 import type { CompanyDTO } from "../company/company";
-import type { CompanyLimitsDTO } from "../plan/plan";
 import type { UserDTO } from "../user/user";
 import type { AuditActor, AuditService } from "./audit";
 
@@ -35,21 +35,8 @@ export class CompanyAudit {
     }
   }
 
-  /** The plan change, and the limit overrides that changed (null = back to the plan's). */
-  async limitsUpdated(company: CompanyDTO, before: CompanyLimitsDTO, after: CompanyLimitsDTO) {
-    if (before.plan !== after.plan) {
-      await this.record(company.id, "company.plan_changed", company.name, {
-        from: before.plan,
-        to: after.plan,
-      });
-    }
-    const changed: Record<string, { from: number | null; to: number | null }> = {};
-    for (const field of ["maxUsers"] as const) {
-      if (before.overrides[field] !== after.overrides[field])
-        changed[field] = { from: before.overrides[field], to: after.overrides[field] };
-    }
-    if (Object.keys(changed).length)
-      await this.record(company.id, "company.limits_changed", company.name, changed);
+  async planChanged(company: CompanyDTO, from: PlanName, to: PlanName) {
+    if (from !== to) await this.record(company.id, "company.plan_changed", company.name, { from, to });
   }
 
   userInvited(user: UserDTO) {

@@ -10,7 +10,6 @@ export const AUDIT_ACTION_LABELS = {
   "company.activated": "activated the company",
   "company.deactivated": "deactivated the company",
   "company.plan_changed": "changed the plan of",
-  "company.limits_changed": "changed the limits of",
   "user.invited": "invited",
   "user.invitation_resent": "resent the invitation to",
   "user.updated": "updated",
@@ -29,8 +28,7 @@ export function auditActionLabel(action: string): string {
 export const PASSWORD_MIN_LENGTH = 10;
 export const BULK_INVITE_MAX = 50;
 
-// Subscription plans and the limits each gives a company, unless a platform admin
-// overrides them. Users counted are those who can sign in or are invited (not
+// Subscription plans and the limits each gives a company. Users counted are those who can sign in or are invited (not
 // deactivated).
 
 export const PLANS = ["free", "premium"] as const;

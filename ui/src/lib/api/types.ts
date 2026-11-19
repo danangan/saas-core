@@ -36,7 +36,7 @@ export type UserStatus = Schemas["UserStatus"];
 
 export type AdminLoginBody = Body<"/api/admin/auth/login", "post">;
 export type CreateCompanyBody = Body<"/api/admin/companies", "post">;
-/** Any of a company's name, active, plan, and limit overrides (null = the plan's). */
+/** Any of a company's name, active, and plan. */
 export type UpdateCompanyBody = Body<"/api/admin/companies/{id}", "patch">;
 export type NewUserBody = Body<"/api/admin/companies/{id}/users", "post">;
 export type BulkInviteBody = Body<"/api/admin/companies/{id}/users/bulk", "post">;

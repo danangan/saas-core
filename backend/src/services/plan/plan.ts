@@ -4,26 +4,18 @@ import { LimitReachedError, NotFoundError } from "../../libs/errors";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
-/** A company's plan, its limits (an admin's override, or the plan's), and what it uses. */
+/** A company's plan, its limits, and what it uses. */
 export type CompanyLimitsDTO = {
   plan: PlanName;
   maxUsers: number;
-  /** An admin's overrides of the plan's limits (null = the plan's). */
-  overrides: { maxUsers: number | null };
   usage: { users: number };
-};
-
-/** The plan, and an admin's overrides; null overrides go back to the plan's limits. */
-export type LimitChanges = {
-  plan?: PlanName;
-  maxUsers?: number | null;
 };
 
 /**
  * Each company's limits: users (who can sign in or are invited; deactivated users don't
  * count). Add a product's own limits (storage, seats, API calls) here. Adding a user checks
  * it inside its transaction, under a per-company lock, so two requests at once can't
- * both pass the check and go over. A company can be over a limit (an admin lowered it):
+ * both pass the check and go over. A company can be over a limit (an admin moved it to a smaller plan):
  * what it has stays, and no one more can be added until it's back under.
  */
 export class PlanService {
@@ -32,29 +24,20 @@ export class PlanService {
   async getLimits(companyId: string, db: Db = this.db): Promise<CompanyLimitsDTO> {
     const company = await db.company.findUnique({
       where: { id: companyId },
-      select: { plan: true, maxUsers: true, deletedAt: true },
+      select: { plan: true, deletedAt: true },
     });
     if (!company || company.deletedAt) throw new NotFoundError("Company not found.");
     const users = await db.user.count({ where: { companyId, isActive: true } });
-    const plan = PLAN_LIMITS[company.plan];
-    return {
-      plan: company.plan,
-      maxUsers: company.maxUsers ?? plan.maxUsers,
-      overrides: { maxUsers: company.maxUsers },
-      usage: { users },
-    };
+    return { plan: company.plan, maxUsers: PLAN_LIMITS[company.plan].maxUsers, usage: { users } };
   }
 
-  /** Changes a company's plan and/or overrides; returns its limits before and after. */
-  async updateLimits(
+  /** Changes a company's plan; returns its limits before and after. */
+  async changePlan(
     companyId: string,
-    changes: LimitChanges,
+    plan: PlanName,
   ): Promise<{ before: CompanyLimitsDTO; after: CompanyLimitsDTO }> {
     const before = await this.getLimits(companyId);
-    await this.db.company.update({
-      where: { id: companyId },
-      data: { plan: changes.plan, maxUsers: changes.maxUsers },
-    });
+    await this.db.company.update({ where: { id: companyId }, data: { plan } });
     return { before, after: await this.getLimits(companyId) };
   }
 
@@ -77,5 +60,4 @@ export class PlanService {
         : `Your company has reached its limit of ${limit}. Deactivate or delete a user, or ask about a bigger plan, to add more.`,
     );
   }
-
 }

@@ -6,7 +6,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import { CompanyStatusBadge } from "@/components/admin/status-badge";
 import { CompanyActions } from "@/components/admin/company-actions";
 import { PlanLimits } from "@/components/admin/plan-limits";
-import { PlanLimitsDialog } from "@/components/admin/plan-limits-dialog";
+import { ChangePlanDialog } from "@/components/admin/change-plan-dialog";
 import { LocalDate } from "@/components/local-date";
 import { ActivityList } from "@/components/users/activity-list";
 import { AddUserDialog } from "@/components/users/add-user-dialog";
@@ -75,7 +75,7 @@ export default async function CompanyDetailPage({ params }: Props) {
 
       <SectionHeader
         title="Plan and limits"
-        actions={<PlanLimitsDialog companyId={company.id} limits={company.limits} />}
+        actions={<ChangePlanDialog companyId={company.id} plan={company.plan} />}
       />
       <PlanLimits limits={company.limits} />
 

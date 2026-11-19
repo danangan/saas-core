@@ -33,7 +33,7 @@ const INVALID_RESET_LINK = "This reset link is invalid or has expired. Request a
 /**
  * Authentication for both kinds of account:
  * - Users: sign-in (company slug, then email + password), forgot password (emailed
- *   one-time reset links), and account security (docs/user-flows.md#sign-in).
+ *   one-time reset links), and account security.
  * - Super-admins for the admin pages: sign-in, and creating an admin or resetting their
  *   password (create-admin script; there is no admin sign-up).
  */

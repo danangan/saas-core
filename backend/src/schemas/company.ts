@@ -26,34 +26,22 @@ export const createCompanyBody = z.object({ name: companyNameSchema });
 /** A company admin renaming their own company. */
 export const renameCompanyBody = z.object({ name: companyNameSchema });
 
-/**
- * PATCH a company (platform admins): any of its name, whether it's active, its plan, and
- * overrides of the plan's limits (null = back to the plan's). The slug never changes.
- */
+/** PATCH a company (platform admins): any of its name, whether it's active, and its plan. The slug never changes. */
 export const updateCompanyBody = z
   .object({
     name: companyNameSchema.optional(),
     isActive: z.boolean().optional(),
     plan: planSchema.optional(),
-    maxUsers: z
-      .number()
-      .int("Enter a whole number.")
-      .min(1, "Allow at least 1 user.")
-      .max(100_000, "Use 100,000 or fewer.")
-      .nullable()
-      .optional(),
   })
   .refine((b) => Object.values(b).some((v) => v !== undefined), "Nothing to change.");
 
 // --- Responses -------------------------------------------------------------------
 
-/** A company's plan, its limits (an admin's override, or the plan's), and what it uses. */
+/** A company's plan, its limits, and what it uses. */
 export const companyLimitsSchema = z
   .object({
     plan: planSchema,
     maxUsers: z.number().int(),
-    /** An admin's overrides of the plan's limits; null = the plan's. */
-    overrides: z.object({ maxUsers: z.number().int().nullable() }),
     /** Users who can sign in or are invited. Can exceed the limit. */
     usage: z.object({ users: z.number().int() }),
   })

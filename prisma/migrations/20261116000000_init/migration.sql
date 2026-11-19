@@ -17,7 +17,6 @@ CREATE TABLE "companies" (
     "slug" TEXT NOT NULL,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "plan" "Plan" NOT NULL DEFAULT 'free',
-    "max_users" INTEGER,
     "deleted_at" TIMESTAMPTZ(3),
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(3) NOT NULL,

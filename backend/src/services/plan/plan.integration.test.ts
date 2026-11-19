@@ -50,28 +50,17 @@ describe("PlanService (integration)", () => {
   });
 
   describe("limits", () => {
-    it("starts on the free plan, and follows the plan unless an admin overrides it", async () => {
+    it("starts on the free plan, and follows the plan's limits", async () => {
       const company = await fixtures.companies.createCompany("Plans");
       expect(await plans.getLimits(company.id)).toEqual({
         plan: "free",
         maxUsers: 5,
-        overrides: { maxUsers: null },
         usage: { users: 0 },
       });
 
-      const premium = await plans.updateLimits(company.id, { plan: "premium" });
+      const premium = await plans.changePlan(company.id, "premium");
       expect(premium.before.plan).toBe("free");
       expect(premium.after).toMatchObject({ plan: "premium", maxUsers: 20 });
-
-      // An override wins over the plan; clearing it goes back to the plan's.
-      await plans.updateLimits(company.id, { maxUsers: 3 });
-      expect(await plans.getLimits(company.id)).toMatchObject({
-        plan: "premium",
-        maxUsers: 3,
-        overrides: { maxUsers: 3 },
-      });
-      await plans.updateLimits(company.id, { maxUsers: null });
-      expect(await plans.getLimits(company.id)).toMatchObject({ maxUsers: 20 });
     });
 
     it("counts users who can sign in or are invited", async () => {
@@ -85,14 +74,14 @@ describe("PlanService (integration)", () => {
   });
 
   describe("the user limit", () => {
-    it("refuses a user beyond the limit, until the limit is raised", async () => {
+    it("refuses a user beyond the limit, until the plan is upgraded", async () => {
       const company = await companyWithUsers("Full team", 5);
       await expect(users.addUser(newUser(company, "Sixth"))).rejects.toThrow(
         "Your company has reached its limit of 5 users.",
       );
       await expect(users.addUser(newUser(company, "Sixth"))).rejects.toBeInstanceOf(LimitReachedError);
 
-      await plans.updateLimits(company.id, { maxUsers: 6 });
+      await plans.changePlan(company.id, "premium");
       await expect(users.addUser(newUser(company, "Sixth"))).resolves.toMatchObject({ status: "invited" });
     });
 
@@ -117,13 +106,15 @@ describe("PlanService (integration)", () => {
       await expect(users.setActive(company.id, away.id, true)).resolves.toMatchObject({ status: "active" });
     });
 
-    it("keeps everyone when an admin lowers the limit below the team's size, and adds no one", async () => {
-      const company = await companyWithUsers("Shrunk team", 4);
-      await plans.updateLimits(company.id, { maxUsers: 2 });
+    it("keeps everyone when a downgrade puts the team over the limit, and adds no one", async () => {
+      const company = await fixtures.companies.createCompany("Shrunk team");
+      await plans.changePlan(company.id, "premium");
+      for (let i = 0; i < 7; i++) await fixtures.users.createUser(company, `user${i}`);
+      await plans.changePlan(company.id, "free");
       const limits = await plans.getLimits(company.id);
-      expect(limits).toMatchObject({ maxUsers: 2, usage: { users: 4 } });
+      expect(limits).toMatchObject({ maxUsers: 5, usage: { users: 7 } });
       await expect(users.addUser(newUser(company, "Extra"))).rejects.toThrow(
-        "Your company has 4 users, over its limit of 2 users.",
+        "Your company has 7 users, over its limit of 5 users.",
       );
     });
   });

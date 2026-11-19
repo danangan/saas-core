@@ -52,7 +52,7 @@ describe("plans and limits (integration)", () => {
     return { cookie: `${USER_SESSION_COOKIE}=${token}`, origin };
   }
 
-  it("lets a platform admin change the plan and override its limits, and logs it", async () => {
+  it("lets a platform admin change the plan, and logs it", async () => {
     const headers = await asAdmin();
     const company = await fixtures().companies.createCompany("Plan change");
 
@@ -66,46 +66,26 @@ describe("plans and limits (integration)", () => {
       method: "PATCH",
       url: `/api/admin/companies/${company.id}`,
       headers,
-      payload: { plan: "premium", maxUsers: 8 },
+      payload: { plan: "premium" },
     });
     expect(patch.statusCode).toBe(200);
-    expect(patch.json().limits).toMatchObject({
-      plan: "premium",
-      maxUsers: 8,
-      overrides: { maxUsers: 8 },
-    });
-
-    // null goes back to the plan's limit.
-    const cleared = await app.inject({
-      method: "PATCH",
-      url: `/api/admin/companies/${company.id}`,
-      headers,
-      payload: { maxUsers: null },
-    });
-    expect(cleared.json().limits).toMatchObject({ maxUsers: 20, overrides: { maxUsers: null } });
+    expect(patch.json().limits).toMatchObject({ plan: "premium", maxUsers: 20 });
 
     const activity = await app.inject({ method: "GET", url: `/api/admin/companies/${company.id}/activity`, headers });
-    expect(activity.json().map((e: { action: string }) => e.action)).toEqual([
-      "company.limits_changed",
-      "company.limits_changed",
-      "company.plan_changed",
-    ]);
+    expect(activity.json().map((e: { action: string }) => e.action)).toEqual(["company.plan_changed"]);
   });
 
-  it("refuses a limit that makes no sense", async () => {
+  it("refuses an unknown plan", async () => {
     const headers = await asAdmin();
-    const company = await fixtures().companies.createCompany("Bad limits");
+    const company = await fixtures().companies.createCompany("Bad plan");
     const response = await app.inject({
       method: "PATCH",
       url: `/api/admin/companies/${company.id}`,
       headers,
-      payload: { maxUsers: 0, plan: "gold" },
+      payload: { plan: "gold" },
     });
     expect(response.statusCode).toBe(400);
-    expect(response.json().fieldErrors).toMatchObject({
-      maxUsers: ["Allow at least 1 user."],
-      plan: [expect.any(String)],
-    });
+    expect(response.json().fieldErrors).toMatchObject({ plan: [expect.any(String)] });
   });
 
   it("shows any user their company's limits and usage", async () => {
@@ -120,7 +100,7 @@ describe("plans and limits (integration)", () => {
   it("refuses a company admin's invite when the company is full", async () => {
     const company = await fixtures().companies.createCompany("Full");
     const headers = await asUser(company, "admin");
-    await container.services.plans.updateLimits(company.id, { maxUsers: 1 });
+    for (let i = 0; i < 4; i++) await fixtures().users.createUser(company, `user${i}`);
 
     const response = await app.inject({
       method: "POST",
@@ -129,7 +109,7 @@ describe("plans and limits (integration)", () => {
       payload: { firstName: "New", lastName: "Person", email: "new@x.test" },
     });
     expect(response.statusCode).toBe(403);
-    expect(response.json().error).toContain("reached its limit of 1 user");
+    expect(response.json().error).toContain("reached its limit of 5 users");
   });
 
   it("doesn't let a company admin change their plan", async () => {
@@ -139,7 +119,7 @@ describe("plans and limits (integration)", () => {
       method: "PATCH",
       url: "/api/company",
       headers,
-      payload: { name: "Renamed", plan: "premium", maxUsers: 1000 },
+      payload: { name: "Renamed", plan: "premium" },
     });
     expect(response.statusCode).toBe(200);
     expect(await container.services.plans.getLimits(company.id)).toMatchObject({ plan: "free", maxUsers: 5 });

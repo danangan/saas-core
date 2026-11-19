@@ -401,7 +401,6 @@ export interface paths {
                         name?: string;
                         isActive?: boolean;
                         plan?: components["schemas"]["PlanInput"];
-                        maxUsers?: number | null;
                     };
                 };
             };
@@ -1989,9 +1988,6 @@ export interface components {
         CompanyLimits: {
             plan: components["schemas"]["Plan"];
             maxUsers: number;
-            overrides: {
-                maxUsers: number | null;
-            };
             usage: {
                 users: number;
             };

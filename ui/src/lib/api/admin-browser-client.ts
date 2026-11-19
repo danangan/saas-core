@@ -45,15 +45,11 @@ class AdminAPIClient {
     );
   }
 
-  /** Changes the plan and/or overrides its limits (null = back to the plan's). */
-  updateCompanyLimits(
-    companyId: string,
-    limits: Pick<UpdateCompanyBody, "plan" | "maxUsers">,
-  ) {
+  changeCompanyPlan(companyId: string, plan: NonNullable<UpdateCompanyBody["plan"]>) {
     return call(
       this.api.PATCH("/api/admin/companies/{id}", {
         params: { path: { id: companyId } },
-        body: limits,
+        body: { plan },
       }),
     );
   }

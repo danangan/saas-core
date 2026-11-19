@@ -26,17 +26,17 @@ test.describe("plans and limits", () => {
     admin = await adminDBConnector.createAdmin();
     company = await companyDBConnector.createCompany("plans");
     companyAdmin = await userDBConnector.createUser(company, "Owner", { role: "admin" });
-    await userDBConnector.createUser(company, "Member");
+    for (let i = 1; i <= 4; i++) await userDBConnector.createUser(company, `Member ${i}`);
   });
 
-  async function changeLimits(page: Page, limits: { users?: string }) {
+  async function changePlan(page: Page, plan: string) {
     await signInAsAdmin(page, admin);
     await openCompany(page, company);
-    await page.getByRole("button", { name: "Change plan or limits" }).click();
-    const dialog = page.getByRole("dialog", { name: "Plan and limits" });
-    if (limits.users !== undefined) await dialog.getByLabel("User limit").fill(limits.users);
+    await page.getByRole("button", { name: "Change plan" }).click();
+    const dialog = page.getByRole("dialog", { name: "Plan" });
+    await dialog.getByLabel("Plan").selectOption({ label: plan });
     await dialog.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Plan and limits saved.")).toBeVisible();
+    await expect(page.getByText("Plan saved.")).toBeVisible();
   }
 
   test.describe.configure({ mode: "serial" });
@@ -47,27 +47,23 @@ test.describe("plans and limits", () => {
     await expect(page.getByRole("row").filter({ hasText: company.name })).toContainText("Free");
     await openCompany(page, company);
     await expect(page.getByText("Free plan")).toBeVisible();
-    await expect(page.getByRole("progressbar", { name: "Users: 2 of 5" })).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Users: 5 of 5" })).toBeVisible();
   });
 
   test("at the user limit: the Team page says so and adding users is off", async ({ page }) => {
-    await changeLimits(page, { users: "2" });
-    await expect(page.getByText("Custom user limit")).toBeVisible();
-    // The activity log records it.
-    await expect(page.getByRole("list", { name: "Activity" })).toContainText("changed the limits of");
-    await page.context().clearCookies();
     await signInAsMember(page, companyAdmin);
     await page.goto("/team");
-    await expect(page.getByRole("progressbar", { name: "Users: 2 of 2" })).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Users: 5 of 5" })).toBeVisible();
     await expect(page.getByText("User limit reached")).toBeVisible();
     await expect(page.getByRole("button", { name: "Add user" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Invite several" })).toBeDisabled();
   });
 
-  test("clearing the override goes back to the plan's limit", async ({ page }) => {
-    await changeLimits(page, { users: "" });
-    await expect(page.getByText("Custom user limit")).toHaveCount(0);
-    await expect(page.getByRole("progressbar", { name: "Users: 2 of 5" })).toBeVisible();
+  test("upgrading the plan raises the limit, and is logged", async ({ page }) => {
+    await changePlan(page, "Premium (20 users)");
+    await expect(page.getByText("Premium plan")).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Users: 5 of 20" })).toBeVisible();
+    await expect(page.getByRole("list", { name: "Activity" })).toContainText("changed the plan of");
 
     await page.context().clearCookies();
     await signInAsMember(page, companyAdmin);

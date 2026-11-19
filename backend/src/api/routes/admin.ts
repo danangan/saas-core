@@ -120,7 +120,7 @@ export async function adminRoutes(
         },
       );
 
-      // Any of: rename, activate or deactivate, change the plan or override its limits.
+      // Any of: rename, activate or deactivate, change the plan.
       authed.patch(
         "/companies/:id",
         {
@@ -131,16 +131,16 @@ export async function adminRoutes(
           },
         },
         async (request) => {
-          const { name, isActive, plan, maxUsers } = request.body;
+          const { name, isActive, plan } = request.body;
           let company = await companies.getCompany(request.params.id); // 404 for an unknown one
           if (name !== undefined || isActive !== undefined) {
             const { before, after } = await companies.updateCompany(company.id, { name, isActive });
             await request.adminAudit.companyUpdated(before, after);
             company = after;
           }
-          if (plan !== undefined || maxUsers !== undefined) {
-            const { before, after } = await plans.updateLimits(company.id, { plan, maxUsers });
-            await request.adminAudit.limitsUpdated(company, before, after);
+          if (plan !== undefined) {
+            const { before, after } = await plans.changePlan(company.id, plan);
+            await request.adminAudit.planChanged(company, before.plan, after.plan);
           }
           return {
             id: company.id,
