@@ -1,0 +1,19 @@
+{
+  "name": "@saas-core/e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "E2E_MODE=local playwright test",
+    "e2e:ui": "E2E_MODE=local playwright test --ui",
+    "e2e:staging": "E2E_MODE=staging playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@saas-core/shared": "workspace:*",
+    "@types/node": "^20",
+    "testcontainers": "12.2.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5"
+  }
+}

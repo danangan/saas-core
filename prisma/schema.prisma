@@ -1,0 +1,197 @@
+// Schema for SaaS Core. See docs/architecture.md#data.
+// Tenant-owned tables carry company_id. New tables need grants for the app role:
+// add a GRANT to saas_app in the migration that creates them (see migrations/*_init).
+
+generator client {
+  provider = "prisma-client"
+  // The generated client lives in shared, so every package gets the models' types
+  // (@saas-core/shared/db). `pnpm --filter @saas-core/shared db:generate` regenerates it.
+  output   = "../shared/src/db/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Company {
+  id              String    @id @default(cuid())
+  name            String
+  slug            String    @unique
+  isActive        Boolean   @default(true) @map("is_active")
+  // The subscription plan, which sets the default limits (PLAN_LIMITS in @saas-core/shared).
+  plan            Plan      @default(free)
+  // A platform admin's override of the plan's limits; null = the plan's.
+  maxUsers        Int?      @map("max_users")
+  // Set when deletion is queued; the company is hidden from then on (docs/jobs.md).
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  users       User[]
+  invitations Invitation[]
+  sessions    Session[]
+  auditLogs   AuditLog[]
+
+  @@map("companies")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  companyId    String    @map("company_id")
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  email        String
+  // Salted argon2id hash. Null until the invitation is accepted.
+  password     String?
+  // Company admins manage their company's team (docs/user-flows.md); members don't.
+  role         UserRole  @default(member)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastSignInAt DateTime? @map("last_sign_in_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invitations         Invitation[]
+  passwordResetTokens PasswordResetToken[]
+  sessions            Session[]
+
+  @@unique([companyId, email])
+  @@map("users")
+}
+
+enum Plan {
+  free
+  premium
+}
+
+enum UserRole {
+  admin
+  member
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sessions Session[]
+
+  @@map("admins")
+}
+
+model Invitation {
+  id         String    @id @default(cuid())
+  companyId  String    @map("company_id")
+  userId     String    @map("user_id")
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  acceptedAt DateTime? @map("accepted_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("invitations")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// Exactly one of userId (tenant session) or adminId (admin session) is set;
+// enforced by a CHECK constraint in the migration.
+model Session {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique @map("token_hash")
+  userId     String?  @map("user_id")
+  adminId    String?  @map("admin_id")
+  companyId  String?  @map("company_id")
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  admin   Admin?   @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([adminId])
+  @@index([companyId])
+  @@map("sessions")
+}
+
+enum JobStatus {
+  queued
+  running
+  done
+  failed
+  // Never ran: its company was deleted while it was queued.
+  cancelled
+}
+
+// Background work (docs/jobs.md). The backend queues jobs; its workers
+// (backend/src/worker/main.ts) claim them with SKIP LOCKED.
+// company_id has no foreign key: a company's jobs (app.delete-company) outlive its row.
+// Kept in the migration SQL, not expressible here:
+//   - jobs_claim_idx: partial index on queued jobs, for claiming.
+//   - jobs_lease_idx: partial index on running jobs, for taking back expired leases.
+//   - jobs_dedupe_key: dedupe_key is unique among queued and running jobs.
+model Job {
+  id          String    @id @default(cuid())
+  type        String
+  companyId   String?   @map("company_id")
+  payload     Json      @default("{}")
+  status      JobStatus @default(queued)
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5) @map("max_attempts")
+  runAt       DateTime  @default(now()) @map("run_at") @db.Timestamptz(6)
+  lockedBy    String?   @map("locked_by")
+  lockedUntil DateTime? @map("locked_until") @db.Timestamptz(6)
+  lastError   String?   @map("last_error")
+  dedupeKey   String?   @map("dedupe_key")
+  finishedAt  DateTime? @map("finished_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([companyId, status])
+  @@map("jobs")
+}
+
+// Who did what to a company and its users, for support (admin company page, Team page).
+// Labels are snapshots, so an entry still reads right after its actor or target is gone.
+// Deleted with the company.
+model AuditLog {
+  id          String   @id @default(cuid())
+  companyId   String?  @map("company_id")
+  // "admin" (a platform admin) or "user" (a company admin).
+  actorType   String   @map("actor_type")
+  actorId     String?  @map("actor_id")
+  actorLabel  String   @map("actor_label")
+  // e.g. "user.invited", "company.renamed" (AUDIT_ACTION_LABELS in shared/src/constants.ts).
+  action      String
+  targetLabel String?  @map("target_label")
+  details     Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+  @@map("audit_logs")
+}

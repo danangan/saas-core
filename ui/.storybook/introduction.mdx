@@ -1,0 +1,31 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Introduction" />
+
+# SaaS Core UI
+
+The components the app is built from. Use these instead of styling elements by hand, so every
+page looks and behaves the same.
+
+- **Foundations**: text styles (`PageHeader`, `SectionHeader`, `Heading`, `Text`).
+- **Components**: buttons, badges, cards, tables, inputs and the other building blocks
+  (`src/components/ui`, mostly [shadcn/ui](https://ui.shadcn.com)).
+- **Feedback**: `Alert` and `ErrorAlert` for messages in the page, toasts for things that just
+  happened, `Spinner`, and the `LoadingState`, `EmptyState` and `ErrorState` a page shows
+  while it loads, when it has nothing, and when it fails.
+- **Forms**: `useForm` with `<Form>`, `TextField`, `TextareaField`, `SelectField`, `FormError`
+  and `SubmitButton` (`src/components/form`). Errors from the API land on their fields, a
+  schema from `@saas-core/shared` is checked before sending, and the form is disabled with a
+  spinner on its button while it submits.
+- **Overlays**: dialogs, confirmation dialogs, sheets and menus.
+
+## Rules of thumb
+
+- One `PageHeader` per page (its `<h1>`). Sections use `SectionHeader` or `Heading level={2}`.
+- An error that stops the user goes in the page (`ErrorAlert`, or `FormError` in a form). A
+  result of something they did goes in a toast.
+- Anything that waits shows it: `SubmitButton` in forms, `Button loading` elsewhere,
+  `LoadingState` for a page or section.
+
+Run it with `pnpm --filter @saas-core/ui storybook` (port 6006). Every story is checked for
+accessibility issues in the Accessibility panel.

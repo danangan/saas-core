@@ -1,0 +1,16 @@
+packages:
+  - ui
+  - backend
+  - shared
+  - e2e
+
+allowBuilds:
+  sharp: true
+  unrs-resolver: true
+  "@prisma/engines": true
+  prisma: true
+  esbuild: true
+  # Optional native add-ons of testcontainers' dependencies; not needed.
+  cpu-features: false
+  protobufjs: false
+  ssh2: false

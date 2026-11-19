@@ -1,0 +1,31 @@
+{
+  "name": "saas-core",
+  "private": true,
+  "packageManager": "pnpm@12.3.4",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "pnpm -r build",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "eslint . && pnpm --filter @saas-core/ui lint",
+    "lint:fix": "eslint . --fix && pnpm --filter @saas-core/ui lint --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:migrate": "pnpm --filter @saas-core/backend db:migrate",
+    "db:deploy": "pnpm --filter @saas-core/backend db:deploy",
+    "admin:create": "pnpm --filter @saas-core/backend admin:create",
+    "e2e": "pnpm --filter @saas-core/e2e e2e",
+    "e2e:staging": "pnpm --filter @saas-core/e2e e2e:staging",
+    "api:generate": "pnpm --filter @saas-core/backend openapi && pnpm --filter @saas-core/ui api:types",
+    "images:build": "scripts/build-images.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "concurrently": "^9.2.5",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.0",
+    "typescript-eslint": "^8.72.2"
+  }
+}

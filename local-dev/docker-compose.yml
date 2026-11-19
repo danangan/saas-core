@@ -1,0 +1,30 @@
+# Local development infrastructure. The apps run on the host (run.sh), or as images
+# (docker-compose.images.yml).
+name: saas-core
+
+services:
+  postgres:
+    image: docker.io/library/postgres:17-alpine
+    environment:
+      POSTGRES_USER: saas          # owner role, used only for migrations
+      POSTGRES_PASSWORD: saas
+      POSTGRES_DB: saas
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saas -d saas"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    image: docker.io/axllent/mailpit:v1.27
+    ports:
+      - "1025:1025"                   # SMTP
+      - "8025:8025"                   # web UI to read captured emails
+
+volumes:
+  postgres-data:

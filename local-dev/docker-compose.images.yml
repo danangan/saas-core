@@ -1,0 +1,55 @@
+# Runs the built images (scripts/build-images.sh) against the local infrastructure:
+#   docker compose -f docker-compose.yml -f docker-compose.images.yml up
+# Then http://localhost:8080. Create an admin with:
+#   docker compose -f docker-compose.yml -f docker-compose.images.yml run --rm migrate ./node_modules/.bin/tsx scripts/create-admin.ts
+
+x-backend: &backend
+  image: saas-core-backend:latest
+  environment: &backend-env
+    NODE_ENV: production
+    TRUST_PROXY: "true"
+    APP_URL: http://localhost:8080
+    DB_HOST: postgres
+    DB_NAME: saas
+    DB_USERNAME: saas_app
+    DB_PASSWORD: saas_app
+    DB_MIGRATION_USERNAME: saas
+    DB_MIGRATION_PASSWORD: saas
+    SMTP_HOST: mailpit
+    SMTP_PORT: "1025"
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  migrate:
+    <<: *backend
+    command: ["./node_modules/.bin/prisma", "migrate", "deploy"]
+    restart: "no"
+
+  api:
+    <<: *backend
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *backend
+    command: ["node", "dist/worker.js"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  ui:
+    image: saas-core-ui:latest
+    environment:
+      BACKEND_URL: http://api:4000
+    depends_on: [api]
+
+  proxy:
+    image: docker.io/library/caddy:2.10-alpine
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on: [api, ui]

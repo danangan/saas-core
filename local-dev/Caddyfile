@@ -1,0 +1,10 @@
+# The reverse proxy in front of the images (docker-compose.images.yml), as in production:
+# /api/* to the backend, everything else to the UI, on one origin.
+:8080 {
+	handle /api/* {
+		reverse_proxy api:4000
+	}
+	handle {
+		reverse_proxy ui:3000
+	}
+}
