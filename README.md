@@ -2,6 +2,14 @@
 
 A base for multi-tenant SaaS products. Each company is its own workspace (like Slack).
 
+## Screenshots
+
+| Platform admin: companies                          | Platform admin: a company                      |
+| -------------------------------------------------- | ---------------------------------------------- |
+| ![Companies](docs/screenshots/admin-companies.png) | ![Company](docs/screenshots/admin-company.png) |
+| **Company admin: team**                            | **Settings**                                   |
+| ![Team](docs/screenshots/team.png)                 | ![Settings](docs/screenshots/settings.png)     |
+
 ## Features
 
 Platform admin (`/admin`)
